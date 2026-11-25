@@ -1,5 +1,8 @@
 import datetime
+import re
+import threading
 import webbrowser
+import winsound
 
 import pyttsx3
 import speech_recognition as sr
@@ -61,6 +64,38 @@ def web_search(command):
     speak("Searching for " + query)
     webbrowser.open("https://www.google.com/search?q=" + query.replace(" ", "+"))
 
+
+def reminder_alert(message):
+    """Called when the reminder time is over: beep and print the message."""
+    print("\n*** REMINDER: " + message + " ***")
+    for _ in range(3):
+        winsound.Beep(1000, 500)
+
+
+def set_reminder(command):
+    # Find a number and a unit in the command, e.g. "10 seconds" or "2 minutes"
+    match = re.search(r"(\d+)\s*(second|seconds|minute|minutes|hour|hours)", command)
+
+    if not match:
+        speak("Please say the time clearly. For example, remind me in 10 seconds.")
+        return
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+
+    if unit.startswith("second"):
+        seconds = amount
+    elif unit.startswith("minute"):
+        seconds = amount * 60
+    else:
+        seconds = amount * 3600
+
+    timer = threading.Timer(seconds, reminder_alert, args=["Your reminder time is over!"])
+    timer.daemon = True
+    timer.start()
+    speak("Okay, I will remind you in " + str(amount) + " " + unit)
+
+
 def main():
     speak("Hello, I am your voice assistant. How can I help you?")
 
@@ -72,6 +107,8 @@ def main():
 
         if "hello" in command:
             speak("Hello! Nice to meet you.")
+        elif "remind" in command or "reminder" in command:
+            set_reminder(command)
         elif "time" in command:
             tell_time()
         elif "date" in command:
