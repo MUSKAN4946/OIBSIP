@@ -10,6 +10,7 @@ from email.message import EmailMessage
 import pyttsx3
 import requests
 import speech_recognition as sr
+from nltk.stem import PorterStemmer
 from dotenv import load_dotenv
 
 # Load secrets from the .env file
@@ -187,6 +188,38 @@ def send_email():
         speak("Sorry, I could not send the email. Please check your internet connection.")
 
 
+# ---------- Intent detection (NLP) ----------
+stemmer = PorterStemmer()
+
+# Order matters: if two intents have the same score, the first one wins
+INTENT_KEYWORDS = {
+    "exit": ["exit", "stop", "quit", "bye", "goodbye", "close"],
+    "email": ["email", "mail"],
+    "weather": ["weather", "temperature", "forecast", "rain", "hot", "cold", "climate"],
+    "reminder": ["remind", "reminder", "alarm", "timer", "alert"],
+    "search": ["search", "google", "look", "find", "browse"],
+    "time": ["time", "clock"],
+    "date": ["date", "day", "today", "calendar"],
+    "greeting": ["hello", "hi", "hey", "greetings"],
+}
+
+
+def detect_intent(command):
+    """Understand what the user wants from a free-form sentence."""
+    words = re.findall(r"[a-z']+", command.lower())
+    stems = {stemmer.stem(word) for word in words}
+
+    best_intent = None
+    best_score = 0
+    for intent, keywords in INTENT_KEYWORDS.items():
+        score = sum(1 for keyword in keywords if stemmer.stem(keyword) in stems)
+        if score > best_score:
+            best_intent = intent
+            best_score = score
+    return best_intent
+
+
+
 def main():
     speak("Hello, I am your voice assistant. How can I help you?")
 
@@ -196,25 +229,27 @@ def main():
         if command == "":
             continue
 
-        if "hello" in command:
+        intent = detect_intent(command)
+
+        if intent == "greeting":
             speak("Hello! Nice to meet you.")
-        elif "email" in command:
+        elif intent == "email":
             send_email()
-        elif "weather" in command:
+        elif intent == "weather":
             get_weather(command)
-        elif "remind" in command or "reminder" in command:
+        elif intent == "reminder":
             set_reminder(command)
-        elif "time" in command:
+        elif intent == "time":
             tell_time()
-        elif "date" in command:
+        elif intent == "date":
             tell_date()
-        elif "search" in command:
+        elif intent == "search":
             web_search(command)
-        elif "exit" in command or "stop" in command:
+        elif intent == "exit":
             speak("Goodbye! Have a nice day.")
             break
         else:
-            speak("Sorry, I do not know that command yet.")
+            speak("Sorry, I did not understand that. You can ask about time, date, weather, email, reminders or web search.")
 
 
 if __name__ == "__main__":
