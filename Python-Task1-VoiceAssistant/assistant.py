@@ -1,18 +1,23 @@
 import datetime
 import os
 import re
+import smtplib
 import threading
 import webbrowser
 import winsound
+from email.message import EmailMessage
 
 import pyttsx3
 import requests
 import speech_recognition as sr
 from dotenv import load_dotenv
 
-# Load the API key from the .env file
+# Load secrets from the .env file
 load_dotenv()
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
 
 # Setup text-to-speech engine
 engine = pyttsx3.init()
@@ -148,6 +153,40 @@ def get_weather(command):
         speak("Network error. Please check your internet connection.")
 
 
+def send_email():
+    if not (EMAIL_ADDRESS and EMAIL_PASSWORD and EMAIL_RECEIVER):
+        speak("Email settings are missing. Please check your .env file.")
+        return
+
+    speak("What is the subject of the email?")
+    subject = listen()
+    if subject == "":
+        return
+
+    speak("What is the message?")
+    body = listen()
+    if body == "":
+        return
+
+    message = EmailMessage()
+    message["From"] = EMAIL_ADDRESS
+    message["To"] = EMAIL_RECEIVER
+    message["Subject"] = subject
+    message.set_content(body)
+
+    try:
+        # App passwords are shown with spaces, so remove them
+        password = EMAIL_PASSWORD.replace(" ", "")
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as server:
+            server.login(EMAIL_ADDRESS, password)
+            server.send_message(message)
+        speak("Your email has been sent successfully.")
+    except smtplib.SMTPAuthenticationError:
+        speak("Email login failed. Please check the email and app password.")
+    except Exception:
+        speak("Sorry, I could not send the email. Please check your internet connection.")
+
+
 def main():
     speak("Hello, I am your voice assistant. How can I help you?")
 
@@ -159,6 +198,8 @@ def main():
 
         if "hello" in command:
             speak("Hello! Nice to meet you.")
+        elif "email" in command:
+            send_email()
         elif "weather" in command:
             get_weather(command)
         elif "remind" in command or "reminder" in command:
