@@ -1,11 +1,18 @@
 import datetime
+import os
 import re
 import threading
 import webbrowser
 import winsound
 
 import pyttsx3
+import requests
 import speech_recognition as sr
+from dotenv import load_dotenv
+
+# Load the API key from the .env file
+load_dotenv()
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
 # Setup text-to-speech engine
 engine = pyttsx3.init()
@@ -96,6 +103,51 @@ def set_reminder(command):
     speak("Okay, I will remind you in " + str(amount) + " " + unit)
 
 
+def get_weather(command):
+    if not WEATHER_API_KEY:
+        speak("Weather API key is missing. Please check your .env file.")
+        return
+
+    # Find the city name after the words "in", "of" or "for"
+    match = re.search(r"weather (?:in|of|for) (.+)", command)
+    if match:
+        city = match.group(1).strip()
+        city = city.split(" what")[0].strip()
+    else:
+        speak("Which city's weather do you want?")
+        city = listen()
+        if city == "":
+            return
+
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {"q": city, "appid": WEATHER_API_KEY, "units": "metric"}
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
+
+        if response.status_code == 200:
+            temp = round(data["main"]["temp"])
+            humidity = data["main"]["humidity"]
+            wind = data["wind"]["speed"]
+            condition = data["weather"][0]["description"]
+            speak(
+                "In " + city + ", it is " + str(temp) + " degrees Celsius with "
+                + condition + ". Humidity is " + str(humidity)
+                + " percent and wind speed is " + str(wind) + " meters per second."
+            )
+        elif response.status_code == 404:
+            speak("Sorry, I could not find the city " + city + ".")
+        elif response.status_code == 401:
+            speak("The API key is not valid yet. Please check it or wait a little.")
+        else:
+            speak("Sorry, the weather service gave an error.")
+    except requests.exceptions.Timeout:
+        speak("The weather service took too long to respond.")
+    except requests.exceptions.RequestException:
+        speak("Network error. Please check your internet connection.")
+
+
 def main():
     speak("Hello, I am your voice assistant. How can I help you?")
 
@@ -107,6 +159,8 @@ def main():
 
         if "hello" in command:
             speak("Hello! Nice to meet you.")
+        elif "weather" in command:
+            get_weather(command)
         elif "remind" in command or "reminder" in command:
             set_reminder(command)
         elif "time" in command:
