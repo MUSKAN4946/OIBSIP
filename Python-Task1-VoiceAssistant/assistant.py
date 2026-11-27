@@ -4,6 +4,7 @@ import re
 import smtplib
 import threading
 import webbrowser
+from urllib.parse import quote
 import winsound
 from email.message import EmailMessage
 
@@ -206,7 +207,13 @@ INTENT_KEYWORDS = {
 
 def detect_intent(command):
     """Understand what the user wants from a free-form sentence."""
-    words = re.findall(r"[a-z']+", command.lower())
+    text = command.lower()
+
+    # Clear knowledge questions are checked first
+    if re.search(r"\b(who is|who was|tell me about|explain|define|meaning of|wikipedia)\b", text):
+        return "knowledge"
+
+    words = re.findall(r"[a-z']+", text)
     stems = {stemmer.stem(word) for word in words}
 
     best_intent = None
@@ -216,7 +223,77 @@ def detect_intent(command):
         if score > best_score:
             best_intent = intent
             best_score = score
+
+    # "what is ..." is a knowledge question only if nothing else matched
+    if best_intent is None and re.search(r"\b(what is|what are|what was)\b", text):
+        return "knowledge"
+
     return best_intent
+
+
+
+def answer_question(command):
+    """Answer a general knowledge question using Wikipedia."""
+    match = re.search(
+        r"(?:who is|who was|tell me about|explain|define|meaning of|what is|what are|what was)\s+(.+)",
+        command.lower(),
+    )
+    if not match:
+        speak("What would you like to know about?")
+        topic = listen()
+        if topic == "":
+            return
+    else:
+        topic = match.group(1).strip()
+
+    # Remove small starting words like "a", "an", "the"
+    topic = re.sub(r"^(a|an|the)\s+", "", topic)
+
+    headers = {"User-Agent": "VoiceAssistantInternshipProject/1.0"}
+
+    try:
+        # Step 1: find the best matching Wikipedia page title
+        search_response = requests.get(
+            "https://en.wikipedia.org/w/api.php",
+            params={"action": "opensearch", "search": topic, "limit": 1, "format": "json"},
+            headers=headers,
+            timeout=10,
+        )
+        titles = search_response.json()[1]
+
+        if not titles:
+            speak("Sorry, I could not find any information about " + topic + ".")
+            return
+
+        # Step 2: get the short summary of that page
+        title = titles[0].replace(" ", "_")
+        summary_response = requests.get(
+            "https://en.wikipedia.org/api/rest_v1/page/summary/" + quote(title),
+            headers=headers,
+            timeout=10,
+        )
+        data = summary_response.json()
+
+        if data.get("type") == "disambiguation":
+            speak(topic + " has many meanings. Please be more specific.")
+            return
+
+        extract = data.get("extract", "")
+        if extract == "":
+            speak("Sorry, I could not find a clear answer for " + topic + ".")
+            return
+
+        # Read only the first two sentences so the answer stays short
+        sentences = re.split(r"(?<=[.!?])\s+", extract)
+        speak(" ".join(sentences[:2]))
+    except requests.exceptions.RequestException:
+        speak("Network error. Please check your internet connection.")
+    except (ValueError, IndexError, KeyError):
+        speak("Sorry, I could not understand the answer from Wikipedia.")
+
+
+
+
 
 
 
@@ -245,6 +322,8 @@ def main():
             tell_date()
         elif intent == "search":
             web_search(command)
+        elif intent == "knowledge":
+            answer_question(command)
         elif intent == "exit":
             speak("Goodbye! Have a nice day.")
             break
