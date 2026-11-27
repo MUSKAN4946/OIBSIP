@@ -1,0 +1,16 @@
+{
+  "open youtube": {
+    "type": "url",
+    "target": "https://www.youtube.com",
+    "reply": "Opening YouTube"
+  },
+  "open github": {
+    "type": "url",
+    "target": "https://github.com/MUSKAN4946",
+    "reply": "Opening GitHub"
+  },
+  "who made you": {
+    "type": "say",
+    "reply": "I was built by Muskan Verma as part of the Oasis Infobyte internship."
+  }
+}

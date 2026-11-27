@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import re
 import smtplib
@@ -293,7 +294,32 @@ def answer_question(command):
 
 
 
+COMMANDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commands.json")
 
+
+def load_custom_commands():
+    """Read the user-defined commands from commands.json."""
+    try:
+        with open(COMMANDS_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError:
+        print("Warning: commands.json has a formatting mistake. Custom commands are skipped.")
+        return {}
+
+
+def run_custom_command(command, custom_commands):
+    """Run a custom command if the spoken text matches one. Returns True if it ran."""
+    for phrase, action in custom_commands.items():
+        if phrase.lower() in command:
+            if action.get("type") == "url":
+                speak(action.get("reply", "Opening the page"))
+                webbrowser.open(action.get("target", ""))
+            else:
+                speak(action.get("reply", "Done"))
+            return True
+    return False
 
 
 
@@ -304,6 +330,9 @@ def main():
         command = listen()
 
         if command == "":
+            continue
+
+        if run_custom_command(command, load_custom_commands()):
             continue
 
         intent = detect_intent(command)
