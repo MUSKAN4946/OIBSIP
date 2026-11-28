@@ -14,21 +14,31 @@ CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
 FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 ICON_URL = "https://openweathermap.org/img/wn/{code}@2x.png"
 
-BG = "#0B1220"
-CARD = "#16213A"
-TEXT = "#F4F6FB"
-MUTED = "#9FB0CC"
-ACCENT = "#F26B3A"
-ERROR = "#FF6B6B"
+# Sky-blue theme (same colours as the title card)
+BG = "#0A2A5E"
+CARD = "#1B5FB0"
+TEXT = "#FFFFFF"
+MUTED = "#D6E8FF"
+ACCENT = "#FFC845"
+ACCENT_HOVER = "#FFB020"
+ERROR = "#FFC9C9"
 
 
 class WeatherApp:
     def __init__(self, root):
         self.root = root
         root.title("Weather App")
-        root.geometry("580x880")
         root.configure(bg=BG)
         root.resizable(False, False)
+
+        # Fit the window to the screen so nothing is hidden at the bottom
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        width = 600
+        height = min(690, screen_h - 160)
+        x = (screen_w - width) // 2
+        y = (screen_h - height) // 2 - 20
+        root.geometry(str(width) + "x" + str(height) + "+" + str(x) + "+" + str(y))
 
         # Keep references to images, otherwise tkinter removes them
         self.icon_image = None
@@ -40,72 +50,69 @@ class WeatherApp:
         self.weather_data = None
         self.forecast_data = None
 
-        tk.Label(root, text="Weather App", font=("Segoe UI", 22, "bold"),
-                 bg=BG, fg=TEXT).pack(pady=(16, 8))
+        tk.Label(root, text="Weather App", font=("Segoe UI", 20, "bold"),
+                 bg=BG, fg=TEXT).pack(pady=(12, 6))
 
-        # Input row
+        # Input row: search box, Get Weather button and unit toggle
         input_row = tk.Frame(root, bg=BG)
-        input_row.pack(pady=(0, 4))
-        self.city_entry = tk.Entry(input_row, font=("Segoe UI", 14), width=24,
+        input_row.pack(pady=(0, 2))
+        self.city_entry = tk.Entry(input_row, font=("Segoe UI", 13), width=20,
                                    bg=CARD, fg=TEXT, insertbackground=TEXT,
                                    relief="flat")
-        self.city_entry.pack(side="left", ipady=6, padx=(0, 8))
+        self.city_entry.pack(side="left", ipady=5, padx=(0, 6))
         self.city_entry.focus()
         self.city_entry.bind("<Return>", lambda event: self.get_weather())
 
-        tk.Button(input_row, text="Get Weather", font=("Segoe UI", 11, "bold"),
-                  bg=ACCENT, fg="white", activebackground="#d85a2b",
-                  activeforeground="white", relief="flat", cursor="hand2",
-                  command=self.get_weather).pack(side="left", ipady=4, ipadx=8)
+        tk.Button(input_row, text="Get Weather", font=("Segoe UI", 10, "bold"),
+                  bg=ACCENT, fg=BG, activebackground=ACCENT_HOVER,
+                  activeforeground=BG, relief="flat", cursor="hand2",
+                  command=self.get_weather).pack(side="left", ipady=4, ipadx=6, padx=(0, 6))
 
-        # Unit toggle button
-        self.unit_button = tk.Button(root, text="Switch to \u00b0F", font=("Segoe UI", 10, "bold"),
+        self.unit_button = tk.Button(input_row, text="Switch to \u00b0F", font=("Segoe UI", 10, "bold"),
                                      bg=CARD, fg=TEXT, activebackground=ACCENT,
-                                     activeforeground="white", relief="flat",
+                                     activeforeground=BG, relief="flat",
                                      cursor="hand2", command=self.toggle_unit)
-        self.unit_button.pack(pady=(4, 0), ipadx=10, ipady=2)
+        self.unit_button.pack(side="left", ipady=4, ipadx=6)
 
         # Error message area (errors are shown inside the window)
-        self.error_label = tk.Label(root, text="", font=("Segoe UI", 11),
-                                    bg=BG, fg=ERROR, wraplength=520)
-        self.error_label.pack(pady=(2, 4))
+        self.error_label = tk.Label(root, text="", font=("Segoe UI", 10),
+                                    bg=BG, fg=ERROR, wraplength=540)
+        self.error_label.pack(pady=(2, 2))
 
         # Current weather panel
         self.result_frame = tk.Frame(root, bg=CARD)
         self.result_frame.pack(padx=30, pady=4, fill="x")
 
-        self.city_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 16, "bold"),
+        self.city_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 15, "bold"),
                                    bg=CARD, fg=TEXT)
-        self.city_label.pack(pady=(10, 0))
+        self.city_label.pack(pady=(8, 0))
 
-        self.icon_label = tk.Label(self.result_frame, bg=CARD)
-        self.icon_label.pack()
-
-        self.temp_label = tk.Label(self.result_frame, text="--", font=("Segoe UI", 38, "bold"),
+        # Icon and temperature side by side
+        middle = tk.Frame(self.result_frame, bg=CARD)
+        middle.pack()
+        self.icon_label = tk.Label(middle, bg=CARD)
+        self.icon_label.pack(side="left", padx=(0, 10))
+        self.temp_label = tk.Label(middle, text="--", font=("Segoe UI", 36, "bold"),
                                    bg=CARD, fg=ACCENT)
-        self.temp_label.pack()
+        self.temp_label.pack(side="left")
 
-        self.condition_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 13),
+        self.condition_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 12),
                                         bg=CARD, fg=TEXT)
-        self.condition_label.pack(pady=(0, 4))
+        self.condition_label.pack()
 
-        self.humidity_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 11),
-                                       bg=CARD, fg=MUTED)
-        self.humidity_label.pack(pady=1)
-
-        self.wind_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 11),
-                                   bg=CARD, fg=MUTED)
-        self.wind_label.pack(pady=(1, 10))
+        self.details_label = tk.Label(self.result_frame, text="", font=("Segoe UI", 10),
+                                      bg=CARD, fg=MUTED)
+        self.details_label.pack(pady=(2, 8))
 
         # Hourly forecast panel
-        tk.Label(root, text="Next 6 hours", font=("Segoe UI", 12, "bold"),
-                 bg=BG, fg=TEXT).pack(anchor="w", padx=34, pady=(8, 4))
+        tk.Label(root, text="Next 6 hours", font=("Segoe UI", 11, "bold"),
+                 bg=BG, fg=TEXT).pack(anchor="w", padx=34, pady=(6, 2))
         self.hourly_frame = tk.Frame(root, bg=BG)
         self.hourly_frame.pack(padx=30, fill="x")
 
         # Daily forecast panel
-        tk.Label(root, text="Next 5 days", font=("Segoe UI", 12, "bold"),
-                 bg=BG, fg=TEXT).pack(anchor="w", padx=34, pady=(10, 4))
+        tk.Label(root, text="Next 5 days", font=("Segoe UI", 11, "bold"),
+                 bg=BG, fg=TEXT).pack(anchor="w", padx=34, pady=(8, 2))
         self.daily_frame = tk.Frame(root, bg=BG)
         self.daily_frame.pack(padx=30, fill="x")
 
@@ -151,8 +158,7 @@ class WeatherApp:
         self.icon_image = None
         self.temp_label.config(text="--")
         self.condition_label.config(text="")
-        self.humidity_label.config(text="")
-        self.wind_label.config(text="")
+        self.details_label.config(text="")
         self.clear_forecast()
 
     def get_icon(self, code, size):
@@ -243,10 +249,10 @@ class WeatherApp:
         self.city_label.config(text=city)
         self.temp_label.config(text=str(self.convert(data["main"]["temp"])) + self.symbol())
         self.condition_label.config(text=condition)
-        self.humidity_label.config(text="Humidity: " + str(humidity) + " %")
-        self.wind_label.config(text="Wind speed: " + str(wind) + " m/s")
+        self.details_label.config(text="Humidity: " + str(humidity) + " %     |     Wind speed: "
+                                  + str(wind) + " m/s")
 
-        self.icon_image = self.get_icon(data["weather"][0]["icon"], 80)
+        self.icon_image = self.get_icon(data["weather"][0]["icon"], 70)
         self.icon_label.config(image=self.icon_image if self.icon_image else "")
 
     def render_forecast(self):
@@ -257,18 +263,18 @@ class WeatherApp:
 
     def make_card(self, parent, title, icon_code, bottom_text):
         card = tk.Frame(parent, bg=CARD)
-        card.pack(side="left", expand=True, fill="both", padx=4)
+        card.pack(side="left", expand=True, fill="both", padx=3)
 
-        tk.Label(card, text=title, font=("Segoe UI", 11, "bold"),
-                 bg=CARD, fg=TEXT).pack(pady=(8, 0))
+        tk.Label(card, text=title, font=("Segoe UI", 10, "bold"),
+                 bg=CARD, fg=TEXT).pack(pady=(6, 0))
 
-        icon = self.get_icon(icon_code, 52)
+        icon = self.get_icon(icon_code, 44)
         if icon:
             self.small_icons.append(icon)
             tk.Label(card, image=icon, bg=CARD).pack()
 
-        tk.Label(card, text=bottom_text, font=("Segoe UI", 11, "bold"),
-                 bg=CARD, fg=ACCENT).pack(pady=(0, 8))
+        tk.Label(card, text=bottom_text, font=("Segoe UI", 10, "bold"),
+                 bg=CARD, fg=ACCENT).pack(pady=(0, 6))
 
     def show_hourly(self, data, offset):
         """Show the next 3 forecast slots (3 hours apart = about 6 hours)."""
